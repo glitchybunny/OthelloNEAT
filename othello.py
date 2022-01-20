@@ -99,10 +99,23 @@ def print_board(_board, _turn=None, _moves=None):
 
 
 def eval_genomes(genomes, config):
-    # Set all fitnesses to 0
-    for id, agent in genomes:
-        agent.fitness = 0
+    # Iterate over all genomes
+    for _id, _agent in genomes:
+        # Set fitness to 0
+        _agent.fitness = 0
 
+        # Fight agent against random number generator N times
+        count = 20
+        for _ in range(count//2):
+            # Make sure there's an equal number of games on each side
+            net = neat.nn.FeedForwardNetwork.create(_agent, config)
+            game_1 = eval_game(net, "random")
+            game_2 = eval_game("random", net)
+
+            # Get fitness
+            _agent.fitness += game_1[0] + game_2[1]
+
+    """
     # Battle all agents against each other in the generation
     for agents in list(combinations(genomes, 2)):
         # Pick two agents at a time
@@ -118,30 +131,63 @@ def eval_genomes(genomes, config):
         # Sum their total fitness for all the games
         alice.fitness += game_1[0] + game_2[1]
         bob.fitness += game_1[1] + game_2[0]
+    """
 
 
-def eval_game(g1_net, g2_net):
-    # Black goes first
+def eval_game(p1, p2):
+    # Setup game
+    board, turn = game_setup(p1)
+
+    # Play game
+    a, b = game_loop(p1, p2, board, turn)
+
+    # Determine scores
+    if a == 0:
+        return 0, 64
+    elif b == 0:
+        return 64, 0
+    else:
+        return a, b
+
+
+def game_setup(p1):
+    # Black always goes first
     board = START_BOARD.copy()
     turn = BLACK
+
+    # But make sure first AI move is random to keep it on its toes
+    if p1 not in ["random", "player"]:
+        pboard, moves = possible_moves(board, turn)
+        candidate_move = random.choice(moves)
+        perform_move(board, candidate_move, turn)
+        turn = WHITE
+
+    return board, turn
+
+
+def game_loop(p1, p2, board, turn):
     game = True
     no_moves_available = False
 
-    # Game loop
+    # Do game loop
     while game:
         pboard, moves = possible_moves(board, turn)
-        if len(moves) > 0:
-            # Parse turn information from neural network and make a move
-            output = g1_net.activate(pboard) if turn == BLACK else g2_net.activate(pboard)
-            output = [output[i]*(i in moves) for i in range(64)]
-
-            # Get max of possible moves and choose that
-            candidate_max = min(output)
-            candidate_move = 0
-            for j in range(64):
-                if output[j] > candidate_max:
-                    candidate_max = output[j]
-                    candidate_move = j
+        if len(moves) == 1:
+            perform_move(board, moves[0], turn)
+            no_moves_available = False
+        elif len(moves) > 0:
+            if (p1 == "random" and turn == BLACK) or (p2 == "random" and turn == WHITE):
+                # Pick a random move
+                candidate_move = random.choice(moves)
+            else:
+                # Parse output from neural network and make a move
+                output = p1.activate(pboard) if turn == BLACK else p2.activate(pboard)
+                candidate_max = 0
+                candidate_move = 0
+                for i in range(64):
+                    if i in moves and output[i] > candidate_max:
+                        candidate_max = output[i]
+                        candidate_move = i
             perform_move(board, candidate_move, turn)
             no_moves_available = False
         elif no_moves_available:
@@ -149,9 +195,9 @@ def eval_game(g1_net, g2_net):
             game = False
         else:
             no_moves_available = True
-        turn = -turn
+        turn = WHITE if turn == BLACK else BLACK
 
-    # End of games, evaluate fitness
+    # End of game, return score
     return board.count(BLACK), board.count(WHITE)
 
 
@@ -162,14 +208,22 @@ def run():
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                          neat.DefaultSpeciesSet, neat.DefaultStagnation,
                          config_path)
+
+    # Create a population
     p = neat.Population(config)
+    # p = neat.Checkpointer.restore_checkpoint("checkpoints/alice/neat-checkpoint-25")
+
+    # Add reporter to show progress in the terminal
     p.add_reporter(neat.StdOutReporter(False))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
+    p.add_reporter(neat.Checkpointer(1, 5))
 
-    winner = p.run(eval_genomes)
-
+    # Train neural network
+    winner = p.run(eval_genomes, 50)
     print("Best fitness -> {}".format(winner))
+
+    stats.save()
 
 
 if __name__ == '__main__':
