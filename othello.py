@@ -53,8 +53,13 @@ def possible_moves(_board, _turn):
     return _pboard, valid_moves
 
 
-def perform_move(_board, _index, _turn):
+def perform_move(_board, _index, _turn, _debug=None):
     if _board[_index] != 0:
+        # Print extra information for debug
+        _pboard, _moves = possible_moves(_board, _turn)
+        print_board(_pboard, _turn)
+        print_board(_board, None, [_index])
+        print(_debug)
         raise RuntimeError("Can't place a tile in an already occupied space")
 
     # place piece
@@ -178,10 +183,11 @@ def game_loop(p1, p2, board, turn):
             if (p1 == "random" and turn == BLACK) or (p2 == "random" and turn == WHITE):
                 # Pick a random move
                 candidate_move = random.choice(moves)
+                output = "random"
             else:
                 # Parse output from neural network and make a move
                 output = p1.activate(pboard) if turn == BLACK else p2.activate(pboard)
-                output = [output[i]*(i in moves) for i in range(len(output))]
+                output = [output[i] if i in moves else float('-inf') for i in range(len(output))]
                 candidate_move = output.index(max(output))
             perform_move(board, candidate_move, turn)
             no_moves_available = False
@@ -205,8 +211,8 @@ def run():
                          config_path)
 
     # Create a population
-    p = neat.Population(config)
-    # p = neat.Checkpointer.restore_checkpoint("neat-checkpoint-17")
+    # p = neat.Population(config)
+    p = neat.Checkpointer.restore_checkpoint("neat-checkpoint-60")
 
     # Add reporter to show progress in the terminal
     p.add_reporter(neat.StdOutReporter(False))
