@@ -1,6 +1,7 @@
 import os
 import neat
 import random
+import multiprocessing
 from itertools import combinations
 
 # constants
@@ -98,22 +99,20 @@ def print_board(_board, _turn=None, _moves=None):
         print([index_to_pos(i) for i in _moves])
 
 
-def eval_genomes(genomes, config):
-    # Iterate over all genomes
-    for _id, _agent in genomes:
-        # Set fitness to 0
-        _agent.fitness = 0
+def eval_genome(genome, config):
+    # Set fitness to 0
+    genome.fitness = 0
 
-        # Fight agent against random number generator N times
-        count = 20
-        for _ in range(count//2):
-            # Make sure there's an equal number of games on each side
-            net = neat.nn.FeedForwardNetwork.create(_agent, config)
-            game_1 = eval_game(net, "random")
-            game_2 = eval_game("random", net)
+    # Fight agent against random number generator N times
+    count = 20
+    for _ in range(count//2):
+        # Make sure there's an equal number of games on each side
+        net = neat.nn.FeedForwardNetwork.create(genome, config)
+        game_1 = eval_game(net, "random")
+        game_2 = eval_game("random", net)
 
-            # Get fitness
-            _agent.fitness += game_1[0] + game_2[1]
+        # Get fitness
+        genome.fitness += game_1[0] + game_2[1]
 
     """
     # Battle all agents against each other in the generation
@@ -220,7 +219,8 @@ def run():
     p.add_reporter(neat.Checkpointer(1, 5))
 
     # Train neural network
-    winner = p.run(eval_genomes, 50)
+    pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), eval_genome)
+    winner = p.run(pe.evaluate, 50)
     print("Best fitness -> {}".format(winner))
 
     stats.save()
