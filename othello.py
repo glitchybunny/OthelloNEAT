@@ -12,6 +12,8 @@ START_BOARD = [
 ]
 OCT_DIRS = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)]
 
+WIN_BONUS = 64
+
 
 def possible_moves(_board, _turn):
     _pboard = _board.copy()
@@ -113,6 +115,20 @@ if __name__ == '__main__':
                 cant_play = True
             else:
                 print("Both players can't make a move, game over")
+                white_score = board.count(1)
+                black_score = board.count(-1)
+                if white_score > black_score:
+                    print("Orange wins!")
+                    # white_score += WIN_BONUS
+                elif black_score > white_score:
+                    print("Blue wins!")
+                    # black_score += WIN_BONUS
+                else:
+                    print("Orange and blue tied!")
+                    # white_score += WIN_BONUS/2
+                    # black_score += WIN_BONUS/2
+                print("Orange:", white_score)
+                print("Blue:", black_score)
                 game = False
 
         # change to other player
