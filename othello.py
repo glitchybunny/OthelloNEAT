@@ -129,8 +129,8 @@ def eval_genome(genome, config):
         game_2 = eval_game("random", net)
         fitness_sum += game_1[0] + game_2[1]
 
-    # Return fitness
-    return fitness_sum
+    # Return fitness (averaged out by number of games)
+    return fitness_sum / count
 
 
 def eval_genomes(genomes, config):
@@ -211,8 +211,8 @@ def run():
                          config_path)
 
     # Create a population
-    # p = neat.Population(config)
-    p = neat.Checkpointer.restore_checkpoint("neat-checkpoint-60")
+    p = neat.Population(config)
+    # p = neat.Checkpointer.restore_checkpoint("genomes/bob/neat-checkpoint-60")
 
     # Add reporter to show progress in the terminal
     p.add_reporter(neat.StdOutReporter(False))
