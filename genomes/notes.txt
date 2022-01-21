@@ -1,0 +1,19 @@
+I've included a few different trained genomes in the repository to play around with.
+
+Alice
+Alice was trained on a previous, broken version of the game
+It's very, very easy to beat
+
+Bob
+Bob was trained on a less broken version of the game, but still has quite a few issues
+It's very easy to beat
+
+Charlie
+Charlie is the first network to be trained for a significant amount of time.
+It's trained against random agents, and hasn't developed very good strategies, but it's still a good challenge for a new player.
+
+Dave
+Dave is the first moderately challenging AI. It was trained on a combination of random agents and against itself.
+It has quite a few decent strategies and was the first AI to beat me in a game. I'm proud of Dave.
+
+

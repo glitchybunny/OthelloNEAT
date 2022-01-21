@@ -4,6 +4,9 @@ import random
 import multiprocessing
 import pickle
 from time import sleep
+from copy import copy
+from colorama import Fore, Back, Style
+
 # from itertools import combinations
 
 # constants
@@ -23,6 +26,10 @@ OCT_DIRS = [(1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1)
 WIN_BONUS = 64
 TOURNAMENT_FITNESS = 0
 random.seed()
+
+# keep running track of the best neural network to compete against
+best_genome = None
+best_fitness = 0
 
 
 def possible_moves(_board, _turn):
@@ -101,17 +108,25 @@ def pos_to_index(_pos):
 
 
 def print_board(_board, _turn=None, _moves=None):
+    print()
     if _turn is not None:
         # Print turn
         if _turn == WHITE:
-            print("🔸🟠 ORANGE TURN 🟠🔸")
+            print(Back.GREEN + Fore.RESET, " ░▒▓█ WHITE TURN  █▓▒░ ", Style.RESET_ALL)
         elif _turn == BLACK:
-            print("🔹🔵 BLUE TURN 🔵🔹")
+            print(Back.GREEN + Fore.BLACK, " ░▒▓█ BLACK TURN  █▓▒░ ", Style.RESET_ALL)
 
-    # Print board itself
-    letters = ["⬛️", "🟠", "🔸️️", "🔹", "🔵"]
+    # Print board
+    letters = [Fore.BLACK + "░░", Fore.RESET + "██", Fore.BLACK + "▏▕", Fore.BLACK + "██"]
+    counter = 0
     for row in range(8):
-        print(' '.join([letters[i] for i in _board[row * 8:row * 8 + 8]]))
+        chars = [letters[i] for i in _board[row * 8:row * 8 + 8]]
+        for i in range(len(chars)):
+            if chars[i] == Fore.BLACK + "▏▕":
+                chars[i] = Fore.RESET if _turn == WHITE else Fore.BLACK
+                chars[i] += str(counter).rjust(2, ' ')
+                counter += 1
+        print(Back.GREEN, ' '.join(chars), Style.RESET_ALL)
 
     if _moves is not None:
         # Print possible moves
@@ -119,20 +134,44 @@ def print_board(_board, _turn=None, _moves=None):
 
 
 def eval_genome(_genome, _config):
+    global best_genome, best_fitness
+
     # Generate network
     net = neat.nn.FeedForwardNetwork.create(_genome, _config)
 
-    # Fight agent against RNG players
+    # Choose agent to compete against
+    if best_genome is None:
+        other = "random"
+        other_fitness = 0
+    else:
+        other = neat.nn.FeedForwardNetwork.create(best_genome, _config)
+        other_fitness = best_fitness
+
+    # Fight agent to get fitness
     fitness_sum = 0
-    count = 50
-    for _ in range(count // 2):
-        # Make sure there's an equal number of games on each side
+    count = 20
+    for _ in range(count // 4):
+        # Play half of the games against random AI
         game_1 = eval_game(net, "random")
         game_2 = eval_game("random", net)
         fitness_sum += game_1[0] + game_2[1]
 
-    # Return fitness (averaged out by number of games)
-    return fitness_sum / count
+        # Fight the other half against the current champion
+        game_3 = eval_game(net, other)
+        game_4 = eval_game(other, net)
+        fitness_sum += game_3[0] + game_4[1]
+        fitness_sum += other_fitness * (game_3[0] - game_3[1]) / 100
+        fitness_sum += other_fitness * (game_4[1] - game_4[0]) / 100
+
+    fitness = fitness_sum / count
+
+    # If fitness is better than the champion, update champion to own genome
+    # Also a 1/500 chance to randomly replace it
+    if fitness > best_fitness or random.random() < 0.002:
+        best_genome = _genome
+        best_fitness = fitness
+
+    return fitness
 
 
 def eval_genomes(_genomes, _config):
@@ -184,7 +223,7 @@ def game_loop(p1, p2, board, turn, verbose=False):
 
         # Log
         if verbose:
-            print_board(pboard, turn, moves)
+            print_board(pboard, turn)
 
         # Choose move
         candidate_move = None
@@ -202,7 +241,8 @@ def game_loop(p1, p2, board, turn, verbose=False):
                 candidate_move = output.index(max(output))
                 if verbose:
                     sleep(1)
-                    print("AI plays", candidate_move)
+                    print("AI plays", moves.index(candidate_move))
+                    sleep(1)
             no_moves_available = False
         elif len(moves) == 1:  # Only one move, forced to play it
             candidate_move = moves[0]
@@ -226,14 +266,14 @@ def game_loop(p1, p2, board, turn, verbose=False):
 def train(_config):
     # Create/load a population
     # p = neat.Population(_config)
-    p = neat.Checkpointer.restore_checkpoint("genomes/charlie/neat-checkpoint-1556")
+    p = neat.Checkpointer.restore_checkpoint("neat-checkpoint-489")
     p.config = _config
 
     # Add reporter to show progress in the terminal
     p.add_reporter(neat.StdOutReporter(False))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
-    p.add_reporter(neat.Checkpointer(100, 300))
+    p.add_reporter(neat.Checkpointer(10, 300))
 
     # Train neural network
     pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), eval_genome, timeout=30)
@@ -271,7 +311,7 @@ def play(_config, _genome, verbose=False):
     # Play game against best genome
     net = neat.nn.FeedForwardNetwork.create(_genome, _config)
     results = eval_game("player", net, verbose)
-    print(results)
+    print("\nFINAL SCORE\nBlack:", results[0], "\nWhite:", results[1])
 
 
 if __name__ == '__main__':
@@ -281,11 +321,12 @@ if __name__ == '__main__':
 
     # Train the neural network
     # genome = train(config)
+    # save_genome('dave-winner', genome)
 
     # Get the best genome and save it
-    # genome = get_best_genome(config, "genomes/charlie/neat-checkpoint-1556")
-    # save_genome('charlie-1556', genome)
+    # genome = get_best_genome(config, "genomes/dave/neat-checkpoint-759")
+    # save_genome('genomes/dave/dave-759', genome)
 
     # Load a genome and play against the neural network
-    genome = load_genome('charlie-1556')
+    genome = load_genome('genomes/dave/dave-759')
     play(config, genome, verbose=True)
