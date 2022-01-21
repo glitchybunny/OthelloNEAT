@@ -211,18 +211,19 @@ def run():
                          config_path)
 
     # Create a population
-    p = neat.Population(config)
-    # p = neat.Checkpointer.restore_checkpoint("genomes/bob/neat-checkpoint-60")
+    # p = neat.Population(config)
+    p = neat.Checkpointer.restore_checkpoint("genomes/charlie/neat-checkpoint-1556")
+    p.config = config
 
     # Add reporter to show progress in the terminal
     p.add_reporter(neat.StdOutReporter(False))
     stats = neat.StatisticsReporter()
     p.add_reporter(stats)
-    p.add_reporter(neat.Checkpointer(1, 5))
+    p.add_reporter(neat.Checkpointer(100, 300))
 
     # Train neural network
-    pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), eval_genome, timeout=60)
-    winner = p.run(pe.evaluate, 50)
+    pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), eval_genome, timeout=30)
+    winner = p.run(pe.evaluate)
     # winner = p.run(eval_genomes)
 
     print("Best fitness -> {}".format(winner))
