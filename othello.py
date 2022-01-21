@@ -1,8 +1,10 @@
-import os
+# import os
 import neat
 import random
 import multiprocessing
-from itertools import combinations
+import pickle
+from time import sleep
+# from itertools import combinations
 
 # constants
 WHITE = 1
@@ -116,9 +118,9 @@ def print_board(_board, _turn=None, _moves=None):
         print([index_to_pos(i) for i in _moves])
 
 
-def eval_genome(genome, config):
+def eval_genome(_genome, _config):
     # Generate network
-    net = neat.nn.FeedForwardNetwork.create(genome, config)
+    net = neat.nn.FeedForwardNetwork.create(_genome, _config)
 
     # Fight agent against RNG players
     fitness_sum = 0
@@ -133,17 +135,17 @@ def eval_genome(genome, config):
     return fitness_sum / count
 
 
-def eval_genomes(genomes, config):
-    for genome_id, genome in genomes:
-        genome.fitness = eval_genome(genome, config)
+def eval_genomes(_genomes, _config):
+    for _id, _genome in _genomes:
+        _genome.fitness = eval_genome(_genome, _config)
 
 
-def eval_game(p1, p2):
+def eval_game(p1, p2, verbose=False):
     # Setup game
     board, turn = game_setup(p1)
 
     # Play game
-    a, b = game_loop(p1, p2, board, turn)
+    a, b = game_loop(p1, p2, board, turn, verbose)
 
     # Determine scores
     if a == 0:
@@ -169,51 +171,63 @@ def game_setup(p1):
     return board, turn
 
 
-def game_loop(p1, p2, board, turn):
+def game_loop(p1, p2, board, turn, verbose=False):
     game = True
     no_moves_available = False
 
     # Do game loop
     while game:
+        # Determine player and possible moves
+        player = p1 if turn == BLACK else p2
         pboard, moves = possible_moves(board, turn)
-        if len(moves) == 1:
-            perform_move(board, moves[0], turn)
-            no_moves_available = False
-        elif len(moves) > 0:
-            if (p1 == "random" and turn == BLACK) or (p2 == "random" and turn == WHITE):
+        moves.sort()
+
+        # Log
+        if verbose:
+            print_board(pboard, turn, moves)
+
+        # Choose move
+        candidate_move = None
+        if len(moves) > 1:  # Multiple moves, choose based on player
+            if player == "random":
                 # Pick a random move
                 candidate_move = random.choice(moves)
-                output = "random"
+            elif player == "player":
+                # Let the player pick a move
+                candidate_move = moves[int(input("Play: "))]
             else:
-                # Parse output from neural network and make a move
-                output = p1.activate(pboard) if turn == BLACK else p2.activate(pboard)
+                # Parse output from neural network to pick a move
+                output = player.activate(pboard)
                 output = [output[i] if i in moves else float('-inf') for i in range(len(output))]
                 candidate_move = output.index(max(output))
-            perform_move(board, candidate_move, turn)
+                if verbose:
+                    sleep(1)
+                    print("AI plays", candidate_move)
             no_moves_available = False
-        elif no_moves_available:
-            # End game if neither side can play
+        elif len(moves) == 1:  # Only one move, forced to play it
+            candidate_move = moves[0]
+            no_moves_available = False
+        elif no_moves_available:  # End game if neither side can play
             game = False
         else:
             no_moves_available = True
+
+        # Perform move
+        if candidate_move is not None:
+            perform_move(board, candidate_move, turn)
+
+        # Swap sides
         turn = WHITE if turn == BLACK else BLACK
 
     # End of game, return score
     return board.count(BLACK), board.count(WHITE)
 
 
-def run():
-    # neural network stuff
-    local_dir = os.path.dirname(__file__)
-    config_path = os.path.join(local_dir, 'config')
-    config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
-                         neat.DefaultSpeciesSet, neat.DefaultStagnation,
-                         config_path)
-
-    # Create a population
-    # p = neat.Population(config)
+def train(_config):
+    # Create/load a population
+    # p = neat.Population(_config)
     p = neat.Checkpointer.restore_checkpoint("genomes/charlie/neat-checkpoint-1556")
-    p.config = config
+    p.config = _config
 
     # Add reporter to show progress in the terminal
     p.add_reporter(neat.StdOutReporter(False))
@@ -226,10 +240,52 @@ def run():
     winner = p.run(pe.evaluate)
     # winner = p.run(eval_genomes)
 
+    # Save winner
     print("Best fitness -> {}".format(winner))
-
     stats.save()
+    return winner
+
+
+def get_best_genome(_config, _checkpoint):
+    # Load checkpoint
+    p = neat.Checkpointer.restore_checkpoint(_checkpoint)
+    p.config = _config
+
+    # Simulate once to find playable candidate
+    pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), eval_genome, timeout=30)
+    return p.run(pe.evaluate, 1)
+
+
+def save_genome(_f, _genome):
+    with open(_f, 'wb') as file:
+        pickle.dump(_genome, file)
+
+
+def load_genome(_f):
+    with open(_f, 'rb') as file:
+        _genome = pickle.load(file)
+    return _genome
+
+
+def play(_config, _genome, verbose=False):
+    # Play game against best genome
+    net = neat.nn.FeedForwardNetwork.create(_genome, _config)
+    results = eval_game("player", net, verbose)
+    print(results)
 
 
 if __name__ == '__main__':
-    run()
+    # Configure neural network
+    config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
+                         neat.DefaultSpeciesSet, neat.DefaultStagnation, "config")
+
+    # Train the neural network
+    # genome = train(config)
+
+    # Get the best genome and save it
+    # genome = get_best_genome(config, "genomes/charlie/neat-checkpoint-1556")
+    # save_genome('charlie-1556', genome)
+
+    # Load a genome and play against the neural network
+    genome = load_genome('charlie-1556')
+    play(config, genome, verbose=True)
