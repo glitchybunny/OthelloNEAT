@@ -6,8 +6,6 @@ import pickle
 from time import sleep
 from colorama import Fore, Back, Style
 
-# from itertools import combinations
-
 # constants
 WHITE = 1
 BLACK = -1
@@ -79,9 +77,11 @@ def train(_config, _checkpoint=None):
     p.add_reporter(stats)
     p.add_reporter(neat.Checkpointer(10, 300))
 
-    # Train neural network
+    # Train neural network in parallel
     pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), eval_genome, timeout=30)
     winner = p.run(pe.evaluate)
+
+    # Train neural network
     # winner = p.run(eval_genomes)
 
     # Save winner
@@ -106,7 +106,7 @@ def eval_genome(_genome, _config):
 
     # Fight agent to get fitness
     fitness_sum = 0
-    count = 20
+    count = 24
     for _ in range(count // 4):
         # Play half of the games against random AI
         game_1 = eval_game(net, "random")
@@ -117,8 +117,8 @@ def eval_genome(_genome, _config):
         game_3 = eval_game(net, other)
         game_4 = eval_game(other, net)
         fitness_sum += game_3[0] + game_4[1]
-        fitness_sum += other_fitness * (game_3[0] - game_3[1]) / 100
-        fitness_sum += other_fitness * (game_4[1] - game_4[0]) / 100
+        fitness_sum += other_fitness * (game_3[0] - game_3[1]) / 64
+        fitness_sum += other_fitness * (game_4[1] - game_4[0]) / 64
 
     fitness = fitness_sum / count
 
@@ -138,7 +138,7 @@ def eval_genomes(_genomes, _config):
 
 def eval_game(p1, p2, verbose=False):
     # Setup game
-    board, turn = game_setup(p1)
+    board, turn = game_setup(p1, p2)
 
     # Play game
     a, b = game_loop(p1, p2, board, turn, verbose)
@@ -152,7 +152,7 @@ def eval_game(p1, p2, verbose=False):
         return a, b
 
 
-def game_setup(p1):
+def game_setup(p1=None, p2=None):
     # Black always goes first
     board = START_BOARD.copy()
     turn = BLACK
@@ -160,9 +160,13 @@ def game_setup(p1):
     # But make sure first AI move is random to keep it on its toes
     if p1 not in ["random", "player"]:
         pboard, moves = get_possible_moves(board, turn)
-        candidate_move = random.choice(moves)
-        perform_move(board, candidate_move, turn)
+        perform_move(board, random.choice(moves), turn)
         turn = WHITE
+
+        if p2 not in ["random", "player"]:
+            pboard, moves = get_possible_moves(board, turn)
+            perform_move(board, random.choice(moves), turn)
+            turn = BLACK
 
     return board, turn
 
@@ -173,22 +177,15 @@ def game_loop(p1, p2, board, turn, verbose=False):
 
     # Do game loop
     while game:
-        # Determine player and possible moves
+        # Determine player and let them pick a move
         player = p1 if turn == BLACK else p2
-        pboard, moves = get_possible_moves(board, turn)
-        moves.sort()
-
-        # Log
-        if verbose:
-            print_board(pboard, turn)
-
-        # Choose move
-        move = game_pick_move(player, pboard, moves, verbose)
+        move = game_pick_move(player, board, turn, verbose)
 
         if move is None:
-            # If no moves available for two turns, end game
+            # No move available, skip turn
             skips += 1
             if skips >= 2:
+                # If no moves available for two turns, end game
                 game = False
         else:
             # Otherwise, perform move
@@ -202,7 +199,15 @@ def game_loop(p1, p2, board, turn, verbose=False):
     return board.count(BLACK), board.count(WHITE)
 
 
-def game_pick_move(player, pboard, moves, _verbose=False):
+def game_pick_move(player, board, turn, _verbose=False):
+    # Generate possible moves
+    pboard, moves = get_possible_moves(board, turn)
+    moves.sort()
+
+    # Print out board
+    if _verbose:
+        print_board(pboard, turn)
+
     # Choose which move to play
     move = None
     if len(moves) > 0:
@@ -213,6 +218,11 @@ def game_pick_move(player, pboard, moves, _verbose=False):
             # Pick a random move
             move = random.choice(moves)
         else:
+            # AI picks a move
+            # Invert pboard if they're playing as black so the AI always receives consistent values
+            # -1 = other player pieces, 1 = ai pieces, 2 = possible moves
+            pboard = [i*turn for i in pboard]
+
             # Parse output from neural network to pick a move
             output = player.activate(pboard)
             output = [output[i] if i in moves else float('-inf') for i in range(len(output))]
@@ -328,7 +338,9 @@ def play(_config, _p1, _p2, verbose=False):
         _p2 = neat.nn.FeedForwardNetwork.create(_p2, _config)
 
     results = eval_game(_p1, _p2, verbose)
-    print("\nFINAL SCORE\nBlack:", results[0], "\nWhite:", results[1])
+    if verbose:
+        print("\nFINAL SCORE\nBlack:", results[0], "\nWhite:", results[1])
+    return results
 
 
 if __name__ == '__main__':
@@ -337,24 +349,44 @@ if __name__ == '__main__':
                          neat.DefaultSpeciesSet, neat.DefaultStagnation, "config")
 
     # Train the neural network
-    genome = train(config)
+    '''
+    genome = train(config, 'genomes/elbertson/neat-checkpoint-1309')
     save_genome('elbertson-winner', genome)
+    '''
 
     # Get the best genome and save it
     '''
-    genome = get_best_genome(config, "genomes/dave/neat-checkpoint-999")
-    save_genome('genomes/dave/dave-999', genome)
+    genome = get_best_genome(config, "genomes/elbertson/neat-checkpoint-799")
+    save_genome('genomes/elbertson/e-799', genome)
     '''
 
-    # Load a genome and play against the neural network
+    # Measure a genome's ability by matching it against randoms 1000 times
     '''
-    genome = load_genome('genomes/charlie/charlie-1556')
+    path = 'genomes/e-1733'
+    genome = load_genome(path)
+    num_games = 10000
+    score = 0
+    for _ in range(num_games//2):
+        if _*2 % 100 == 0:
+            print(_*2)
+        results_black = play(config, genome, "random")
+        results_white = play(config, "random", genome)
+        score += results_black[0] + results_white[1]
+    score /= num_games
+    print(path, "scored an average of", score)
+    '''
+
+    # Play against a genome
+    '''
+    genome = load_genome('genomes/charlie/c-1556')
     play(config, "player", genome, verbose=True)
     '''
 
-    # Fight neural networks against each other
+    # Fight two genomes against each other
     '''
-    genome1 = load_genome('genomes/dave/dave-759')
-    genome2 = load_genome('genomes/dave/dave-999')
-    play(config, genome1, genome2, verbose=False)
+    genome1 = load_genome('genomes/dave/d-759')
+    genome2 = load_genome('genomes/elbertson/e-1733')
+    play(config, genome1, genome2)
     '''
+
+

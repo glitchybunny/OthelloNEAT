@@ -21,3 +21,11 @@ I'm proud of you, Dave.
 
 Elbertson
 E
+
+
+Average scores against completely random agents:
+c-1556  -   45.1958
+e-1733  -   40.5785
+d-759   -   40.3942
+d-999   -   40.2583
+e-799   -   39.3940
