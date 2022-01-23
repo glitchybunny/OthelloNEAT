@@ -31,73 +31,6 @@ best_genome = None
 best_fitness = 0
 
 
-def possible_moves(_board, _turn):
-    _pboard = _board.copy()
-    valid_moves = []
-    for _i in range(len(_pboard)):
-        # get current board pieces
-        if _pboard[_i] == _turn:
-            # walk in each oct direction to find possible moves
-            for d in OCT_DIRS:
-                walk = True
-                can_play = False
-                pos = index_to_pos(_i)
-                pos[0] += d[0]
-                pos[1] += d[1]
-                while walk and 0 <= pos[0] <= 7 and 0 <= pos[1] <= 7:
-                    _j = pos_to_index(pos)
-                    if _pboard[_j] == -_turn:
-                        can_play = True
-                    elif _pboard[_j] == 0:
-                        if can_play:
-                            _pboard[_j] = 2 * _turn
-                            valid_moves.append(_j)
-                        walk = False
-                    else:
-                        walk = False
-                    pos[0] += d[0]
-                    pos[1] += d[1]
-
-    return _pboard, valid_moves
-
-
-def perform_move(_board, _index, _turn, _debug=None):
-    if _board[_index] != 0:
-        # Print extra information for debug
-        _pboard, _moves = possible_moves(_board, _turn)
-        print_board(_pboard, _turn)
-        print_board(_board, None, [_index])
-        print(_debug)
-        raise RuntimeError("Can't place a tile in an already occupied space")
-
-    # place piece
-    _board[_index] = _turn
-
-    # walk in each oct direction to flank pieces
-    _pos = index_to_pos(_index)
-    for d in OCT_DIRS:
-        move = 1
-        x = _pos[0] + d[0]
-        y = _pos[1] + d[1]
-        to_change = []
-        while move != 0 and 0 <= x <= 7 and 0 <= y <= 7:
-            i = pos_to_index((int(x), int(y)))
-            if move == 1:
-                if _board[i] == 0:
-                    move = 0
-                elif _board[i] == _turn:
-                    move = -1
-            elif _board[i] == -_turn:
-                to_change.append(i)
-            elif _board[i] == _turn:
-                move = 0
-            x += d[0] * move
-            y += d[1] * move
-
-        for i in to_change:
-            _board[i] = _turn
-
-
 def index_to_pos(_index):
     return [_index % 8, _index // 8]
 
@@ -130,6 +63,31 @@ def print_board(_board, _turn=None, _moves=None):
     if _moves is not None:
         # Print possible moves
         print([index_to_pos(i) for i in _moves])
+
+
+def train(_config, _checkpoint=None):
+    # Create/load a population
+    if _checkpoint is None:
+        p = neat.Population(_config)
+    else:
+        p = neat.Checkpointer.restore_checkpoint(_checkpoint)
+    p.config = _config
+
+    # Add reporter to show progress in the terminal
+    p.add_reporter(neat.StdOutReporter(False))
+    stats = neat.StatisticsReporter()
+    p.add_reporter(stats)
+    p.add_reporter(neat.Checkpointer(10, 300))
+
+    # Train neural network
+    pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), eval_genome, timeout=30)
+    winner = p.run(pe.evaluate)
+    # winner = p.run(eval_genomes)
+
+    # Save winner
+    print("Best fitness -> {}".format(winner))
+    stats.save()
+    return winner
 
 
 def eval_genome(_genome, _config):
@@ -201,7 +159,7 @@ def game_setup(p1):
 
     # But make sure first AI move is random to keep it on its toes
     if p1 not in ["random", "player"]:
-        pboard, moves = possible_moves(board, turn)
+        pboard, moves = get_possible_moves(board, turn)
         candidate_move = random.choice(moves)
         perform_move(board, candidate_move, turn)
         turn = WHITE
@@ -217,7 +175,7 @@ def game_loop(p1, p2, board, turn, verbose=False):
     while game:
         # Determine player and possible moves
         player = p1 if turn == BLACK else p2
-        pboard, moves = possible_moves(board, turn)
+        pboard, moves = get_possible_moves(board, turn)
         moves.sort()
 
         # Log
@@ -274,29 +232,71 @@ def game_pick_move(player, pboard, moves, _verbose=False):
     return move
 
 
-def train(_config, _checkpoint=None):
-    # Create/load a population
-    if _checkpoint is None:
-        p = neat.Population(_config)
-    else:
-        p = neat.Checkpointer.restore_checkpoint(_checkpoint)
-    p.config = _config
+def get_possible_moves(_board, _turn):
+    _pboard = _board.copy()
+    valid_moves = []
+    for _i in range(len(_pboard)):
+        # get current board pieces
+        if _pboard[_i] == _turn:
+            # walk in each oct direction to find possible moves
+            for d in OCT_DIRS:
+                walk = True
+                can_play = False
+                pos = index_to_pos(_i)
+                pos[0] += d[0]
+                pos[1] += d[1]
+                while walk and 0 <= pos[0] <= 7 and 0 <= pos[1] <= 7:
+                    _j = pos_to_index(pos)
+                    if _pboard[_j] == -_turn:
+                        can_play = True
+                    elif _pboard[_j] == 0:
+                        if can_play:
+                            _pboard[_j] = 2 * _turn
+                            valid_moves.append(_j)
+                        walk = False
+                    else:
+                        walk = False
+                    pos[0] += d[0]
+                    pos[1] += d[1]
 
-    # Add reporter to show progress in the terminal
-    p.add_reporter(neat.StdOutReporter(False))
-    stats = neat.StatisticsReporter()
-    p.add_reporter(stats)
-    p.add_reporter(neat.Checkpointer(10, 300))
+    return _pboard, valid_moves
 
-    # Train neural network
-    pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), eval_genome, timeout=30)
-    winner = p.run(pe.evaluate)
-    # winner = p.run(eval_genomes)
 
-    # Save winner
-    print("Best fitness -> {}".format(winner))
-    stats.save()
-    return winner
+def perform_move(_board, _index, _turn, _debug=None):
+    if _board[_index] != 0:
+        # Print extra information for debug
+        _pboard, _moves = get_possible_moves(_board, _turn)
+        print_board(_pboard, _turn)
+        print_board(_board, None, [_index])
+        print(_debug)
+        raise RuntimeError("Can't place a tile in an already occupied space")
+
+    # place piece
+    _board[_index] = _turn
+
+    # walk in each oct direction to flank pieces
+    _pos = index_to_pos(_index)
+    for d in OCT_DIRS:
+        move = 1
+        x = _pos[0] + d[0]
+        y = _pos[1] + d[1]
+        to_change = []
+        while move != 0 and 0 <= x <= 7 and 0 <= y <= 7:
+            i = pos_to_index((int(x), int(y)))
+            if move == 1:
+                if _board[i] == 0:
+                    move = 0
+                elif _board[i] == _turn:
+                    move = -1
+            elif _board[i] == -_turn:
+                to_change.append(i)
+            elif _board[i] == _turn:
+                move = 0
+            x += d[0] * move
+            y += d[1] * move
+
+        for i in to_change:
+            _board[i] = _turn
 
 
 def get_best_genome(_config, _checkpoint):
@@ -337,10 +337,8 @@ if __name__ == '__main__':
                          neat.DefaultSpeciesSet, neat.DefaultStagnation, "config")
 
     # Train the neural network
-    '''
-    genome = train(config, "genomes/dave/neat-checkpoint-999")
-    save_genome('dave-winner', genome)
-    '''
+    genome = train(config)
+    save_genome('elbertson-winner', genome)
 
     # Get the best genome and save it
     '''
@@ -349,10 +347,10 @@ if __name__ == '__main__':
     '''
 
     # Load a genome and play against the neural network
-    #'''
-    genome = load_genome('genomes/dave/dave-759')
-    play(config, genome, "player", verbose=True)
-    #'''
+    '''
+    genome = load_genome('genomes/charlie/charlie-1556')
+    play(config, "player", genome, verbose=True)
+    '''
 
     # Fight neural networks against each other
     '''
