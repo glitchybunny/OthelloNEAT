@@ -63,33 +63,6 @@ def print_board(_board, _turn=None, _moves=None):
         print([index_to_pos(i) for i in _moves])
 
 
-def train(_config, _checkpoint=None):
-    # Create/load a population
-    if _checkpoint is None:
-        p = neat.Population(_config)
-    else:
-        p = neat.Checkpointer.restore_checkpoint(_checkpoint)
-    p.config = _config
-
-    # Add reporter to show progress in the terminal
-    p.add_reporter(neat.StdOutReporter(False))
-    stats = neat.StatisticsReporter()
-    p.add_reporter(stats)
-    p.add_reporter(neat.Checkpointer(10, 300))
-
-    # Train neural network in parallel
-    pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), eval_genome, timeout=30)
-    winner = p.run(pe.evaluate)
-
-    # Train neural network
-    # winner = p.run(eval_genomes)
-
-    # Save winner
-    print("Best fitness -> {}".format(winner))
-    stats.save()
-    return winner
-
-
 def eval_genome(_genome, _config):
     global best_genome, best_fitness
 
@@ -135,6 +108,33 @@ def eval_genome(_genome, _config):
 def eval_genomes(_genomes, _config, _function=eval_genome):
     for _id, _genome in _genomes:
         _genome.fitness = _function(_genome, _config)
+
+
+def train(_config, _checkpoint=None, _function=eval_genome):
+    # Create/load a population
+    if _checkpoint is None:
+        p = neat.Population(_config)
+    else:
+        p = neat.Checkpointer.restore_checkpoint(_checkpoint)
+    p.config = _config
+
+    # Add reporter to show progress in the terminal
+    p.add_reporter(neat.StdOutReporter(False))
+    stats = neat.StatisticsReporter()
+    p.add_reporter(stats)
+    p.add_reporter(neat.Checkpointer(10, 300))
+
+    # Train neural network in parallel
+    pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), _function, timeout=30)
+    winner = p.run(pe.evaluate)
+
+    # Train neural network
+    # winner = p.run(eval_genomes)
+
+    # Save winner
+    print("Best fitness -> {}".format(winner))
+    stats.save()
+    return winner
 
 
 def eval_game(p1, p2, verbose=False):
