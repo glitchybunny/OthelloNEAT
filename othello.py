@@ -120,7 +120,8 @@ def eval_genome(_genome, _config):
         fitness_sum += other_fitness * (game_3[0] - game_3[1]) / 64
         fitness_sum += other_fitness * (game_4[1] - game_4[0]) / 64
 
-    fitness = fitness_sum / count
+    # Fitness is between 0 and 1
+    fitness = ((fitness_sum / count) / 64) ** 2
 
     # If fitness is better than the champion, update champion to own genome
     # Also a 1/500 chance to randomly replace it
@@ -131,9 +132,9 @@ def eval_genome(_genome, _config):
     return fitness
 
 
-def eval_genomes(_genomes, _config):
+def eval_genomes(_genomes, _config, _function=eval_genome):
     for _id, _genome in _genomes:
-        _genome.fitness = eval_genome(_genome, _config)
+        _genome.fitness = _function(_genome, _config)
 
 
 def eval_game(p1, p2, verbose=False):
@@ -221,7 +222,7 @@ def game_pick_move(player, board, turn, _verbose=False):
             # AI picks a move
             # Invert pboard if they're playing as black so the AI always receives consistent values
             # -1 = other player pieces, 1 = ai pieces, 2 = possible moves
-            pboard = [i*turn for i in pboard]
+            pboard = [i * turn for i in pboard]
 
             # Parse output from neural network to pick a move
             output = player.activate(pboard)
@@ -309,13 +310,13 @@ def perform_move(_board, _index, _turn, _debug=None):
             _board[i] = _turn
 
 
-def get_best_genome(_config, _checkpoint):
+def get_best_genome(_config, _checkpoint, _function=eval_genome):
     # Load checkpoint
     p = neat.Checkpointer.restore_checkpoint(_checkpoint)
     p.config = _config
 
     # Simulate once to find playable candidate
-    pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), eval_genome, timeout=30)
+    pe = neat.ParallelEvaluator(1 + multiprocessing.cpu_count(), _function, timeout=30)
     return p.run(pe.evaluate, 1)
 
 
@@ -344,15 +345,13 @@ def play(_config, _p1, _p2, verbose=False):
 
 
 if __name__ == '__main__':
-    # Configure neural network
+    # Load network configuration
     config = neat.Config(neat.DefaultGenome, neat.DefaultReproduction,
                          neat.DefaultSpeciesSet, neat.DefaultStagnation, "config")
 
     # Train the neural network
-    '''
-    genome = train(config, 'genomes/elbertson/neat-checkpoint-1309')
+    genome = train(config, 'genomes/elbertson/neat-checkpoint-1779', eval_genome)
     save_genome('elbertson-winner', genome)
-    '''
 
     # Get the best genome and save it
     '''
@@ -378,7 +377,7 @@ if __name__ == '__main__':
 
     # Play against a genome
     '''
-    genome = load_genome('genomes/charlie/c-1556')
+    genome = load_genome('genomes/e-1733')
     play(config, "player", genome, verbose=True)
     '''
 
@@ -388,5 +387,3 @@ if __name__ == '__main__':
     genome2 = load_genome('genomes/elbertson/e-1733')
     play(config, genome1, genome2)
     '''
-
-
