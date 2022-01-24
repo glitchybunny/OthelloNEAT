@@ -1,31 +1,35 @@
 I've included a few different trained genomes in the repository to play around with.
 
 Alice
-A was trained on a previous, broken version of the game.
-It's very, very easy to beat, and no more difficult than random.
+A was trained on a broken version of the game
+A is no smarter than a random agent
 
 Bob
-B was trained on a less broken version of the game, but still has quite a few issues.
-It's very easy to beat
+B was trained on a less-broken version of the game
+B is better than random, but still very easy
 
 Charlie
-C is the first network to be trained for a significant amount of time.
-It's trained against random agents, and hasn't developed very good strategies,
-but it's still a interesting challenge for a new player.
+C is the first network to be trained for a significant amount of time
+C hasn't developed very good strategies, but is still a formidable opponent
+C should serve as an interesting challenge for new players
 
 Dave
-D is the first moderately challenging AI. D plays significantly better when playing as black.
-It was trained on a combination of random agents and against itself.
-It has quite a few decent strategies and was the first AI to beat me in a game.
-I'm proud of you, Dave.
+D is the first moderately challenging AI
+D was trained against itself and random agents
+D was the first genome to beat me - I'm proud of you, Dave
 
 Elbertson
-E
+E has been trained against random agents and itself, using different scoring systems and parameters
+E is not as good as I'd hoped, given the sheer amount of games it's been trained on. This is probably because each game between AIs only has 8 different outcomes.
 
 
-Average scores against completely random agents:
-c-1556  -   45.1958
-e-1733  -   40.5785
-d-759   -   40.3942
-d-999   -   40.2583
-e-799   -   39.3940
+Genome scores ranked against completely random agents:
+    genome  -   as black    as white    overall
+1.  c-1556  -   44.685      46.047      45.366
+2.  e-3039  -   44.89       45.177      45.031
+3.  d-759   -   39.585      40.83       40.2075
+4.  e-799   -   38.948      38.848      38.8979
+5.  b-105   -   37.51       37.976      37.741
+6.  a-25    -   31.891      33.086      32.489
+
+

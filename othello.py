@@ -70,39 +70,45 @@ def eval_genome(_genome, _config):
     net = neat.nn.FeedForwardNetwork.create(_genome, _config)
 
     # Choose agent to compete against
+    '''
     if best_genome is None:
         other = "random"
         other_fitness = 0
     else:
         other = neat.nn.FeedForwardNetwork.create(best_genome, _config)
         other_fitness = best_fitness
+    '''
 
     # Fight agent to get fitness
     fitness_sum = 0
-    count = 24
-    for _ in range(count // 4):
+    count = 500
+    for _ in range(count // 2):
         # Play half of the games against random AI
         game_1 = eval_game(net, "random")
         game_2 = eval_game("random", net)
         fitness_sum += game_1[0] + game_2[1]
 
         # Fight the other half against the current champion
+        '''
         game_3 = eval_game(net, other)
         game_4 = eval_game(other, net)
         fitness_sum += game_3[0] + game_4[1]
         fitness_sum += other_fitness * (game_3[0] - game_3[1]) / 64
         fitness_sum += other_fitness * (game_4[1] - game_4[0]) / 64
-
-    # Fitness is between 0 and 1
-    fitness = ((fitness_sum / count) / 64) ** 2
+        '''
 
     # If fitness is better than the champion, update champion to own genome
     # Also a 1/500 chance to randomly replace it
-    if fitness > best_fitness or (fitness > 32 and random.random() < 0.002):
+    '''
+    if fitness > best_fitness or (fitness > 0.5 and random.random() < 0.002):
         best_genome = _genome
         best_fitness = fitness
-
+        
     return fitness
+    '''
+
+    # Fitness is between 0 and 1
+    return ((fitness_sum / count) / 64) ** 2
 
 
 def eval_genomes(_genomes, _config, _function=eval_genome):
@@ -350,30 +356,36 @@ if __name__ == '__main__':
                          neat.DefaultSpeciesSet, neat.DefaultStagnation, "config")
 
     # Train the neural network
-    genome = train(config, 'genomes/elbertson/neat-checkpoint-1779', eval_genome)
+    '''
+    genome = train(config, 'neat-checkpoint-2569', eval_genome)
     save_genome('elbertson-winner', genome)
+    '''
 
     # Get the best genome and save it
     '''
-    genome = get_best_genome(config, "genomes/elbertson/neat-checkpoint-799")
-    save_genome('genomes/elbertson/e-799', genome)
+    genome = get_best_genome(config, "genomes/elbertson/neat-checkpoint-3039")
+    save_genome('genomes/e-3039', genome)
     '''
 
     # Measure a genome's ability by matching it against randoms 1000 times
-    '''
-    path = 'genomes/e-1733'
+    #'''
+    path = 'genomes/e-3039'
     genome = load_genome(path)
-    num_games = 10000
-    score = 0
-    for _ in range(num_games//2):
-        if _*2 % 100 == 0:
-            print(_*2)
+    num_games = 1000
+    score_black = 0
+    score_white = 0
+    for _ in range(num_games):
+        if _ % 100 == 0:
+            print(_)
         results_black = play(config, genome, "random")
         results_white = play(config, "random", genome)
-        score += results_black[0] + results_white[1]
-    score /= num_games
-    print(path, "scored an average of", score)
-    '''
+        score_black += results_black[0]
+        score_white += results_white[1]
+    score_black /= num_games
+    score_white /= num_games
+    print(path, "scored\nblack:", score_black, "\nwhite:", score_white,
+          "\naverage:", (score_black + score_white)/2)
+    #'''
 
     # Play against a genome
     '''
