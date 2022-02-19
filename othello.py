@@ -81,7 +81,7 @@ def eval_genome(_genome, _config):
 
     # Fight agent to get fitness
     fitness_sum = 0
-    count = 500
+    count = 100
     for _ in range(count // 2):
         # Play half of the games against random AI
         game_1 = eval_game(net, "random")
@@ -109,6 +109,23 @@ def eval_genome(_genome, _config):
 
     # Fitness is between 0 and 1
     return ((fitness_sum / count) / 64) ** 2
+
+
+def eval_genome_weak(_genome, _config):
+    # Generate network
+    net = neat.nn.FeedForwardNetwork.create(_genome, _config)
+
+    # Fight random agent to get fitness
+    fitness_sum = 0
+    count = 100
+    for _ in range(count // 2):
+        # Play 100 games against random AI
+        game_1 = eval_game(net, "random")
+        game_2 = eval_game("random", net)
+        fitness_sum += game_1[0] + game_2[1]
+
+    # Fitness is between 0 and 1
+    return 1 - ((fitness_sum / count) / 64) ** 2
 
 
 def eval_genomes(_genomes, _config, _function=eval_genome):
@@ -357,19 +374,19 @@ if __name__ == '__main__':
 
     # Train the neural network
     '''
-    genome = train(config, 'neat-checkpoint-2569', eval_genome)
-    save_genome('elbertson-winner', genome)
+    genome = train(config, "neat-checkpoint-101", eval_genome_weak)
+    save_genome('gary-winner', genome)
     '''
 
     # Get the best genome and save it
     '''
-    genome = get_best_genome(config, "genomes/elbertson/neat-checkpoint-3039")
-    save_genome('genomes/e-3039', genome)
+    genome = get_best_genome(config, "neat-checkpoint-101", eval_genome_weak)
+    save_genome('genomes/g-101', genome)
     '''
 
     # Measure a genome's ability by matching it against randoms 1000 times
-    #'''
-    path = 'genomes/e-3039'
+    '''
+    path = 'genomes/g-101'
     genome = load_genome(path)
     num_games = 1000
     score_black = 0
@@ -385,11 +402,11 @@ if __name__ == '__main__':
     score_white /= num_games
     print(path, "scored\nblack:", score_black, "\nwhite:", score_white,
           "\naverage:", (score_black + score_white)/2)
-    #'''
+    '''
 
     # Play against a genome
     '''
-    genome = load_genome('genomes/e-1733')
+    genome = load_genome('genomes/g-101')
     play(config, "player", genome, verbose=True)
     '''
 

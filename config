@@ -4,8 +4,8 @@
 # or the experiment itself.  This is the only required section.
 [NEAT]
 fitness_criterion     = max
-fitness_threshold     = 0.9
-pop_size              = 128
+fitness_threshold     = 0.99
+pop_size              = 1024
 reset_on_extinction   = False
 
 [DefaultGenome]
@@ -32,7 +32,7 @@ conn_add_prob           = 0.5
 conn_delete_prob        = 0.5
 
 enabled_default         = True
-enabled_mutate_rate     = 0.01
+enabled_mutate_rate     = 0.05
 
 feed_forward            = True
 initial_connection      = full
@@ -69,5 +69,5 @@ max_stagnation = 20
 species_elitism = 4
 
 [DefaultReproduction]
-elitism = 2
+elitism = 4
 survival_threshold = 0.1

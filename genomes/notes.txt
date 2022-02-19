@@ -22,14 +22,20 @@ Elbertson
 E has been trained against random agents and itself, using different scoring systems and parameters
 E is not as good as I'd hoped, given the sheer amount of games it's been trained on. This is probably because each game between AIs only has 8 different outcomes.
 
+Gary
+G is designed to lose. It intentionally tries to lose the game so the human player feels good about themselves.
+It's far more fun to play against than any of the other bots.
 
-Genome scores ranked against completely random agents:
+
+Genome average scores ranked against completely random agents:
     genome  -   as black    as white    overall
 1.  c-1556  -   44.685      46.047      45.366
-2.  e-3039  -   44.89       45.177      45.031
+2.  e-3087  -   44.97       45.266      45.116
 3.  d-759   -   39.585      40.83       40.2075
 4.  e-799   -   38.948      38.848      38.8979
 5.  b-105   -   37.51       37.976      37.741
 6.  a-25    -   31.891      33.086      32.489
+
+7.  g-101   -   21.056      21.591      21.3235
 
 
